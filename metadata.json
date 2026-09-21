@@ -1,0 +1,8 @@
+{
+  "name": "OneCard",
+  "description": "Mobile-friendly digital hub for small local businesses replacing physical business cards, menus, and loyalty cards with a single QR code.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
