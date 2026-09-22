@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { MenuItem, ExtractedMenuItem, Business } from '../../types';
 import { SAMPLE_MENU_OCR_TEXT } from '../../data/initialData';
+import { api, getAuthToken } from '../../utils/api';
 
 interface MenuManagerProps {
   business: Business;
@@ -57,11 +58,7 @@ export const MenuManager: React.FC<MenuManagerProps> = ({
   // Quick toggle availability
   const handleToggleAvailability = async (itemId: string, current: boolean) => {
     try {
-      await fetch(`/api/businesses/${business.slug}/menu/toggle-availability`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ itemId, isAvailable: !current }),
-      });
+      await api.toggleMenuItemAvailability(business.slug, itemId, !current);
       onRefreshMenu();
     } catch (e) {
       console.error('Failed to toggle availability:', e);
@@ -72,9 +69,7 @@ export const MenuManager: React.FC<MenuManagerProps> = ({
   const handleDeleteItem = async (itemId: string) => {
     if (!confirm('Are you sure you want to remove this item?')) return;
     try {
-      await fetch(`/api/businesses/${business.slug}/menu/${itemId}`, {
-        method: 'DELETE',
-      });
+      await api.deleteMenuItem(business.slug, itemId);
       onRefreshMenu();
     } catch (e) {
       console.error('Failed to delete item:', e);
@@ -101,11 +96,7 @@ export const MenuManager: React.FC<MenuManagerProps> = ({
     };
 
     try {
-      await fetch(`/api/businesses/${business.slug}/menu`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(itemPayload),
-      });
+      await api.saveMenuItems(business.slug, itemPayload);
       setEditingItem(null);
       setIsNewItemModalOpen(false);
       onRefreshMenu();
@@ -145,9 +136,13 @@ export const MenuManager: React.FC<MenuManagerProps> = ({
         payload.sampleText = SAMPLE_MENU_OCR_TEXT;
       }
 
+      const token = getAuthToken();
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
       const res = await fetch('/api/menu/extract', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(payload),
       });
 
@@ -192,11 +187,7 @@ export const MenuManager: React.FC<MenuManagerProps> = ({
     try {
       // Append to current menu
       const updatedMenu = [...menuItems, ...newMenuItems];
-      await fetch(`/api/businesses/${business.slug}/menu`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updatedMenu),
-      });
+      await api.saveMenuItems(business.slug, updatedMenu);
       setImportSuccess(true);
       setExtractedItems([]);
       setMenuImageBase64('');

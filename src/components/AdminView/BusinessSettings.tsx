@@ -10,6 +10,7 @@ import {
   Phone,
 } from 'lucide-react';
 import { Business, BusinessCategory, BusinessHours } from '../../types';
+import { api } from '../../utils/api';
 
 interface BusinessSettingsProps {
   business: Business;
@@ -47,17 +48,10 @@ export const BusinessSettings: React.FC<BusinessSettingsProps> = ({
     e.preventDefault();
     setSaving(true);
     try {
-      const res = await fetch('/api/businesses', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        onUpdateBusiness(data);
-        setSavedSuccess(true);
-        setTimeout(() => setSavedSuccess(false), 2500);
-      }
+      const data = await api.updateBusiness(formData.slug, formData);
+      onUpdateBusiness(data);
+      setSavedSuccess(true);
+      setTimeout(() => setSavedSuccess(false), 2500);
     } catch (err) {
       console.error('Error saving business profile:', err);
     } finally {

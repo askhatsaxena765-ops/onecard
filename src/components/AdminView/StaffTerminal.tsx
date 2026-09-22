@@ -11,6 +11,7 @@ import {
   Users,
 } from 'lucide-react';
 import { Business, CustomerLoyalty } from '../../types';
+import { api } from '../../utils/api';
 
 interface StaffTerminalProps {
   business: Business;
@@ -44,25 +45,18 @@ export const StaffTerminal: React.FC<StaffTerminalProps> = ({
 
     setLoading(true);
     try {
-      const res = await fetch(`/api/businesses/${business.slug}/loyalty/punch`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          phone: phoneInput.trim(),
-          action,
-          amount: action === 'stamp' ? stampCount : 25,
-          note: visitNote.trim() || 'Store visit',
-          rewardTitle: business.loyaltyConfig?.stampRewardTitle,
-        }),
+      const data = await api.punchLoyalty(business.slug, {
+        phone: phoneInput.trim(),
+        action,
+        amount: action === 'stamp' ? stampCount : 25,
+        note: visitNote.trim() || 'Store visit',
+        rewardTitle: business.loyaltyConfig?.stampRewardTitle,
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        setLastPunchedCustomer(data.customer);
-        setQualifiesForReward(data.qualifiesForReward);
-        setShowCelebration(true);
-        onRefreshBusiness();
-      }
+      setLastPunchedCustomer(data.customer);
+      setQualifiesForReward(data.qualifiesForReward);
+      setShowCelebration(true);
+      onRefreshBusiness();
     } catch (err) {
       console.error('Error punching customer card:', err);
     } finally {

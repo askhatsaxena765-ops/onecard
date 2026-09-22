@@ -12,6 +12,7 @@ import {
   Share2,
 } from 'lucide-react';
 import { Business } from '../../types';
+import { api } from '../../utils/api';
 
 interface AnalyticsViewProps {
   business: Business;
@@ -23,8 +24,7 @@ export const AnalyticsView: React.FC<AnalyticsViewProps> = ({ business }) => {
   const [copiedSummary, setCopiedSummary] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/businesses/${business.slug}/analytics`)
-      .then((res) => res.json())
+    api.getAnalytics(business.slug)
       .then((data) => {
         setAnalyticsData(data);
         setLoading(false);

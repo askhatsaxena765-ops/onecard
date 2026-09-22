@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Business } from '../../types';
-import { DEMO_BUSINESS } from '../../data/initialData';
+import { api } from '../../utils/api';
 import {
   Store,
   Check,
@@ -40,43 +40,8 @@ export const ShopSwitcherModal: React.FC<ShopSwitcherModalProps> = ({
     const fetchShops = async () => {
       setLoading(true);
       try {
-        const res = await fetch('/api/businesses');
-        let serverShops: Business[] = [];
-        if (res.ok) {
-          serverShops = await res.json();
-        }
-
-        // Merge with local storage shops in case server restarted
-        let localShops: Business[] = [];
-        try {
-          const raw = localStorage.getItem('onecard_saved_shops');
-          if (raw) {
-            localShops = JSON.parse(raw);
-          }
-        } catch (e) {}
-
-        const map = new Map<string, Business>();
-
-        // Always include default demo
-        map.set(DEMO_BUSINESS.slug, DEMO_BUSINESS);
-
-        // Add server shops
-        serverShops.forEach((b) => map.set(b.slug, b));
-
-        // Add local shops
-        localShops.forEach((b) => {
-          if (!map.has(b.slug)) {
-            map.set(b.slug, b);
-          }
-        });
-
-        const list = Array.from(map.values());
-        setAllShops(list);
-
-        // Keep local storage updated with full list
-        try {
-          localStorage.setItem('onecard_saved_shops', JSON.stringify(list));
-        } catch (e) {}
+        const serverShops = await api.getBusinesses();
+        setAllShops(serverShops);
       } catch (err) {
         console.error('Error fetching shops list:', err);
       } finally {

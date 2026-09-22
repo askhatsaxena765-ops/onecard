@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { DEMO_BUSINESS, DEMO_MENU_ITEMS } from './data/initialData';
+import { DEMO_BUSINESS } from './data/initialData';
 import { Business, MenuItem } from './types';
 import { CustomerHub } from './components/CustomerView/CustomerHub';
 import { AdminDashboard } from './components/AdminView/AdminDashboard';
 import { OnboardingWizard } from './components/Onboarding/OnboardingWizard';
 import { StaffPinModal } from './components/AdminView/StaffPinModal';
+import { api, getCurrentUser } from './utils/api';
 
 const getInitialSlug = (): string => {
   if (typeof window === 'undefined') return 'meetup-cafe';
@@ -16,16 +17,6 @@ const getInitialSlug = (): string => {
   const path = window.location.pathname.replace(/^\/+/, '').trim();
   if (path && path !== '' && !path.startsWith('api') && !path.includes('.')) {
     return path.toLowerCase();
-  }
-  const savedActive = localStorage.getItem('onecard_active_slug');
-  if (savedActive && savedActive.trim() && savedActive !== 'moti-mahal-delux' && savedActive !== 'demo') {
-    return savedActive.trim().toLowerCase();
-  }
-  // Clear any old stored demo slug
-  if (savedActive === 'moti-mahal-delux') {
-    try {
-      localStorage.setItem('onecard_active_slug', 'meetup-cafe');
-    } catch (e) {}
   }
   return 'meetup-cafe';
 };
@@ -47,14 +38,43 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
   const [isDeveloper, setIsDeveloper] = useState<boolean>(() => {
+    const user = getCurrentUser();
+    if (user?.role === 'admin') return true;
     if (typeof window === 'undefined') return false;
     const params = new URLSearchParams(window.location.search);
     return params.get('dev') === 'true' || localStorage.getItem('onecard_is_developer') === 'true';
   });
 
+  // Verify auth session on mount
+  useEffect(() => {
+    const verifyAuth = async () => {
+      const res = await api.getMe();
+      if (res.authenticated && res.user) {
+        if (res.user.role === 'admin') {
+          setIsDeveloper(true);
+        } else if (res.user.role === 'owner') {
+          setIsDeveloper(false);
+          // If owner is trying to view a shop they don't own in admin mode, redirect to their shop
+          if (res.user.assignedShopSlug && currentSlug !== res.user.assignedShopSlug && viewMode === 'admin') {
+            setCurrentSlug(res.user.assignedShopSlug);
+          }
+        }
+      }
+    };
+    verifyAuth();
+  }, [viewMode]);
+
   const handleSwitchToAdmin = (isDev = false) => {
     if (isDev) {
       setIsDeveloper(true);
+    }
+    const user = getCurrentUser();
+    if (user) {
+      if (user.role === 'admin' || (user.role === 'owner' && user.assignedShopSlug === currentSlug)) {
+        setIsDeveloper(user.role === 'admin');
+        setViewMode('admin');
+        return;
+      }
     }
     if (business) {
       try {
@@ -68,7 +88,7 @@ export default function App() {
     setIsPinModalOpen(true);
   };
 
-  // On mount: if no explicit ?biz in URL, query the server for latest active shop
+  // On mount: if no explicit ?biz in URL, query the server/database for latest active shop
   useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     const bizParam = searchParams.get('biz') || searchParams.get('b') || searchParams.get('shop');
@@ -76,14 +96,10 @@ export default function App() {
     const hasExplicitSlug = Boolean(bizParam || (path && !path.startsWith('api') && !path.includes('.')));
 
     if (!hasExplicitSlug) {
-      fetch('/api/active-slug')
-        .then((res) => res.json())
-        .then((data) => {
-          if (data?.slug) {
-            localStorage.setItem('onecard_active_slug', data.slug);
-            if (data.slug !== currentSlug) {
-              setCurrentSlug(data.slug);
-            }
+      api.getActiveSlug()
+        .then((slug) => {
+          if (slug && slug !== currentSlug) {
+            setCurrentSlug(slug);
           }
         })
         .catch(() => {});
@@ -103,37 +119,27 @@ export default function App() {
     return () => window.removeEventListener('popstate', handleUrlChange);
   }, []);
 
-  // Fetch business and menu items from server
+  // Fetch business and menu items from server/database
   const loadData = async (slugToLoad = currentSlug) => {
     try {
       setLoading(true);
-      const bizRes = await fetch(`/api/businesses/${slugToLoad}`);
-      if (bizRes.ok) {
-        const bizData = await bizRes.json();
-        setBusiness(bizData);
-      } else if (bizRes.status === 404) {
-        // Fallback: load active business
-        const activeRes = await fetch('/api/active-slug');
-        if (activeRes.ok) {
-          const activeData = await activeRes.json();
-          if (activeData?.slug && activeData.slug !== slugToLoad) {
-            setCurrentSlug(activeData.slug);
-            return;
-          }
-        }
-        // Fallback to demo business if nothing else exists
-        setBusiness(DEMO_BUSINESS);
-      }
+      const biz = await api.getBusiness(slugToLoad);
+      setBusiness(biz);
 
-      const menuRes = await fetch(`/api/businesses/${slugToLoad}/menu`);
-      if (menuRes.ok) {
-        const menuData = await menuRes.json();
-        setMenuItems(menuData);
-      } else {
-        setMenuItems([]);
-      }
-    } catch (err) {
-      console.error('Error fetching data from API:', err);
+      const menu = await api.getMenu(slugToLoad);
+      setMenuItems(menu);
+    } catch (err: any) {
+      console.warn(`Could not load shop "${slugToLoad}":`, err.message);
+      // Fallback: try loading active business from DB
+      try {
+        const activeSlug = await api.getActiveSlug();
+        if (activeSlug && activeSlug !== slugToLoad) {
+          setCurrentSlug(activeSlug);
+          return;
+        }
+      } catch {}
+      // Fallback to default demo if server has not responded yet
+      setBusiness(DEMO_BUSINESS);
     } finally {
       setLoading(false);
     }
@@ -146,37 +152,13 @@ export default function App() {
   const handleSelectBusiness = (slug: string, mode: 'customer' | 'admin' = 'admin') => {
     setCurrentSlug(slug);
     setViewMode(mode);
-    localStorage.setItem('onecard_active_slug', slug);
-    fetch('/api/active-slug', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slug }),
-    }).catch(() => {});
+    api.setActiveSlug(slug).catch(() => {});
     const newUrl = mode === 'admin' ? `/?biz=${slug}&mode=admin` : `/?biz=${slug}`;
     window.history.pushState({}, '', newUrl);
   };
 
   const handleOnboardingComplete = (newBiz: Business, targetMode: 'admin' | 'customer' = 'admin') => {
-    // Save to local storage registry
-    try {
-      const raw = localStorage.getItem('onecard_saved_shops');
-      const list: Business[] = raw ? JSON.parse(raw) : [DEMO_BUSINESS];
-      if (!list.some((b) => b.slug === newBiz.slug)) {
-        list.push(newBiz);
-      }
-      localStorage.setItem('onecard_saved_shops', JSON.stringify(list));
-    } catch (e) {}
-
-    localStorage.setItem('onecard_active_slug', newBiz.slug);
-    localStorage.setItem('onecard_is_developer', 'true');
     setIsDeveloper(true);
-
-    fetch('/api/active-slug', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ slug: newBiz.slug }),
-    }).catch(() => {});
-
     setBusiness(newBiz);
     setCurrentSlug(newBiz.slug);
     setMenuItems([]);

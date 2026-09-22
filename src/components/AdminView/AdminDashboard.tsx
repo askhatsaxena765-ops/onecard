@@ -14,6 +14,7 @@ import {
   Store,
 } from 'lucide-react';
 import { Business, MenuItem } from '../../types';
+import { clearAuthSession } from '../../utils/api';
 import { StaffTerminal } from './StaffTerminal';
 import { MenuManager } from './MenuManager';
 import { QRStudio } from './QRStudio';
@@ -57,6 +58,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const handleLock = () => {
     try {
       sessionStorage.removeItem(`onecard_staff_auth_${business.slug}`);
+      clearAuthSession();
     } catch (e) {}
     onSwitchToCustomer();
   };

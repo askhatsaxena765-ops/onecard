@@ -60,11 +60,29 @@ export interface Business {
   loyaltyConfig: LoyaltyConfig;
   stats: BusinessStats;
   ownerPhone: string;
+  ownerId?: string;
   rating?: number;
   reviewCount?: number;
   servesVegetarian?: boolean;
   reservationsUrl?: string;
   staffPin?: string;
+}
+
+export type UserRole = 'admin' | 'owner';
+
+export interface User {
+  id: string;
+  role: UserRole;
+  identifier: string; // phone or email or username
+  assignedShopSlug?: string; // only for owner role
+  staffPin?: string;
+  name?: string;
+  createdAt?: string;
+}
+
+export interface AuthSession {
+  token: string;
+  user: User;
 }
 
 export interface MenuItem {

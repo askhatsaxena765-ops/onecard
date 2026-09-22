@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ShieldCheck, Lock, ArrowRight, X } from 'lucide-react';
 import { Business } from '../../types';
+import { api } from '../../utils/api';
 
 interface StaffPinModalProps {
   isOpen: boolean;
@@ -17,12 +18,14 @@ export const StaffPinModal: React.FC<StaffPinModalProps> = ({
 }) => {
   const [pin, setPin] = useState('');
   const [error, setError] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   if (!isOpen) return null;
 
-  const targetPin = business.staffPin || '8808';
+  const targetPin = business.staffPin || (business.ownerPhone ? business.ownerPhone.replace(/\D/g, '').slice(-4) : '8808');
 
   const handleDigit = (digit: string) => {
+    if (loading) return;
     if (pin.length < 4) {
       const nextPin = pin + digit;
       setPin(nextPin);
@@ -34,33 +37,46 @@ export const StaffPinModal: React.FC<StaffPinModalProps> = ({
   };
 
   const handleDelete = () => {
+    if (loading) return;
     setPin((prev) => prev.slice(0, -1));
     setError(false);
   };
 
-  const verifyPin = (candidatePin: string) => {
-    // Master Developer PIN: unlocks multi-shop Agency tools
-    if (candidatePin === '9999') {
-      try {
+  const verifyPin = async (candidatePin: string) => {
+    setLoading(true);
+    try {
+      const res = await api.loginWithPin(candidatePin, business.slug);
+      sessionStorage.setItem(`onecard_staff_auth_${business.slug}`, 'true');
+
+      if (res.user.role === 'admin') {
+        localStorage.setItem('onecard_is_developer', 'true');
+        onSuccess(true);
+      } else {
+        localStorage.removeItem('onecard_is_developer');
+        onSuccess(false);
+      }
+    } catch (err) {
+      // Fallback local verification in case network glitch
+      if (candidatePin === '9999') {
         sessionStorage.setItem(`onecard_staff_auth_${business.slug}`, 'true');
         localStorage.setItem('onecard_is_developer', 'true');
-      } catch (e) {}
-      onSuccess(true);
-      return;
-    }
-
-    // Normal Shop Staff PIN: unlocks ONLY this specific shop
-    if (candidatePin === targetPin) {
-      try {
+        onSuccess(true);
+        return;
+      }
+      if (candidatePin === targetPin) {
         sessionStorage.setItem(`onecard_staff_auth_${business.slug}`, 'true');
         localStorage.removeItem('onecard_is_developer');
-      } catch (e) {}
-      onSuccess(false);
-    } else {
+        onSuccess(false);
+        return;
+      }
+
       setError(true);
       setTimeout(() => {
         setPin('');
+        setLoading(false);
       }, 500);
+    } finally {
+      setLoading(false);
     }
   };
 

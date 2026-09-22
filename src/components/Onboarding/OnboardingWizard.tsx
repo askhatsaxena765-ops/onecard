@@ -16,6 +16,7 @@ import {
   Eye,
 } from 'lucide-react';
 import { Business, BusinessCategory } from '../../types';
+import { api } from '../../utils/api';
 import { generateQRCodeDataUrl, downloadQRCodeImage, getBusinessPublicUrl } from '../../utils/qr';
 
 interface OnboardingWizardProps {
@@ -131,28 +132,18 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
     };
 
     try {
-      await fetch('/api/businesses', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(newBiz),
-      });
-
-      // Save to local registry so user never loses created shops
-      try {
-        const raw = localStorage.getItem('onecard_saved_shops');
-        const list: Business[] = raw ? JSON.parse(raw) : [];
-        if (!list.some((b) => b.slug === newBiz.slug)) {
-          list.push(newBiz);
-        }
-        localStorage.setItem('onecard_saved_shops', JSON.stringify(list));
-      } catch (e) {}
-
+      const savedBiz = await api.createBusiness(newBiz);
+      const qr = await generateQRCodeDataUrl(getBusinessPublicUrl(savedBiz.slug));
+      setQrDataUrl(qr);
+      setCreatedBusiness(savedBiz);
+      setCurrentStep(6);
+    } catch (err) {
+      console.error('Error creating business:', err);
+      // Even if network error, allow continuing to QR preview
       const qr = await generateQRCodeDataUrl(getBusinessPublicUrl(newBiz.slug));
       setQrDataUrl(qr);
       setCreatedBusiness(newBiz);
       setCurrentStep(6);
-    } catch (err) {
-      console.error('Error creating business:', err);
     }
   };
 
