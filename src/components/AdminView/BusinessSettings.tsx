@@ -374,12 +374,12 @@ export const BusinessSettings: React.FC<BusinessSettingsProps> = ({
               maxLength={4}
               pattern="[0-9]*"
               inputMode="numeric"
-              value={formData.staffPin || '8808'}
+              value={formData.staffPin || ''}
               onChange={(e) => handleChange('staffPin', e.target.value.replace(/\D/g, '').slice(0, 4))}
               className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl font-mono text-base tracking-widest font-bold text-stone-900"
-              placeholder="8808"
+              placeholder="••••"
             />
-            <p className="text-[11px] text-stone-400 mt-1">Default is <strong>8808</strong>. Enter any 4 digits.</p>
+            <p className="text-[11px] text-stone-400 mt-1">Confidential 4-digit PIN for staff authorization.</p>
           </div>
           <div>
             <label className="block font-bold text-stone-700 mb-1">
@@ -390,7 +390,7 @@ export const BusinessSettings: React.FC<BusinessSettingsProps> = ({
               value={formData.ownerPhone || ''}
               onChange={(e) => handleChange('ownerPhone', e.target.value)}
               className="w-full px-3 py-2 bg-stone-50 border border-stone-200 rounded-xl font-medium"
-              placeholder="070558 08808"
+              placeholder="+91 98765 43210"
             />
             <p className="text-[11px] text-stone-400 mt-1">Used for emergency recovery and alerts.</p>
           </div>

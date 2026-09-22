@@ -22,8 +22,6 @@ export const StaffPinModal: React.FC<StaffPinModalProps> = ({
 
   if (!isOpen) return null;
 
-  const targetPin = business.staffPin || (business.ownerPhone ? business.ownerPhone.replace(/\D/g, '').slice(-4) : '8808');
-
   const handleDigit = (digit: string) => {
     if (loading) return;
     if (pin.length < 4) {
@@ -55,21 +53,7 @@ export const StaffPinModal: React.FC<StaffPinModalProps> = ({
         localStorage.removeItem('onecard_is_developer');
         onSuccess(false);
       }
-    } catch (err) {
-      // Fallback local verification in case network glitch
-      if (candidatePin === '9999') {
-        sessionStorage.setItem(`onecard_staff_auth_${business.slug}`, 'true');
-        localStorage.setItem('onecard_is_developer', 'true');
-        onSuccess(true);
-        return;
-      }
-      if (candidatePin === targetPin) {
-        sessionStorage.setItem(`onecard_staff_auth_${business.slug}`, 'true');
-        localStorage.removeItem('onecard_is_developer');
-        onSuccess(false);
-        return;
-      }
-
+    } catch {
       setError(true);
       setTimeout(() => {
         setPin('');
@@ -106,7 +90,7 @@ export const StaffPinModal: React.FC<StaffPinModalProps> = ({
 
         <h3 className="text-lg font-black text-stone-900 tracking-tight">Staff & Owner Portal</h3>
         <p className="text-xs text-stone-500 mt-1 max-w-[220px]">
-          Enter the 4-digit staff PIN to access stamps, menu editor & scanner.
+          Enter your 4-digit staff PIN to access stamps, menu editor & scanner.
         </p>
 
         {/* PIN Indicators */}
@@ -163,10 +147,6 @@ export const StaffPinModal: React.FC<StaffPinModalProps> = ({
             ⌫
           </button>
         </div>
-
-        <p className="text-[11px] text-stone-400 mt-4">
-          Default Owner PIN: <strong className="text-stone-600 font-mono">8808</strong>
-        </p>
       </div>
     </div>
   );

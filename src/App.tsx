@@ -5,7 +5,7 @@ import { CustomerHub } from './components/CustomerView/CustomerHub';
 import { AdminDashboard } from './components/AdminView/AdminDashboard';
 import { OnboardingWizard } from './components/Onboarding/OnboardingWizard';
 import { StaffPinModal } from './components/AdminView/StaffPinModal';
-import { api, getCurrentUser } from './utils/api';
+import { api, getCurrentUser, getAuthToken } from './utils/api';
 
 const getInitialSlug = (): string => {
   if (typeof window === 'undefined') return 'meetup-cafe';
@@ -69,21 +69,13 @@ export default function App() {
       setIsDeveloper(true);
     }
     const user = getCurrentUser();
-    if (user) {
+    const token = getAuthToken();
+    if (user && token) {
       if (user.role === 'admin' || (user.role === 'owner' && user.assignedShopSlug === currentSlug)) {
         setIsDeveloper(user.role === 'admin');
         setViewMode('admin');
         return;
       }
-    }
-    if (business) {
-      try {
-        const isAuth = sessionStorage.getItem(`onecard_staff_auth_${business.slug}`);
-        if (isAuth === 'true') {
-          setViewMode('admin');
-          return;
-        }
-      } catch (e) {}
     }
     setIsPinModalOpen(true);
   };

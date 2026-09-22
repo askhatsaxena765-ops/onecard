@@ -13,7 +13,11 @@ app.use(express.json({ limit: '25mb' }));
 app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 
 // Auth Token Helpers
-const AUTH_SECRET = process.env.AUTH_SECRET || 'onecard_production_secret_key_8808_9999';
+const AUTH_SECRET = process.env.AUTH_SECRET;
+
+if (!AUTH_SECRET) {
+  throw new Error('AUTH_SECRET environment variable is required.');
+}
 
 export interface AuthUserPayload {
   id: string;
@@ -221,6 +225,12 @@ app.post('/api/active-slug', requireAdmin as express.RequestHandler, async (req:
   res.json({ success: true, slug });
 });
 
+export function sanitizeBusiness(biz: Business): Business {
+  const clean = { ...biz };
+  delete clean.staffPin;
+  return clean;
+}
+
 // Businesses: List
 // Developer/Admin -> sees all shops
 // Owner -> sees ONLY their assigned shop
@@ -229,17 +239,17 @@ app.get('/api/businesses', async (req: AuthenticatedRequest, res) => {
   if (req.user) {
     if (req.user.role === 'admin') {
       const allShops = await db.getBusinesses();
-      return res.json(allShops);
+      return res.json(allShops.map(sanitizeBusiness));
     }
     if (req.user.role === 'owner' && req.user.assignedShopSlug) {
       const myShop = await db.getBusinessBySlug(req.user.assignedShopSlug);
-      return res.json(myShop ? [myShop] : []);
+      return res.json(myShop ? [sanitizeBusiness(myShop)] : []);
     }
   }
 
   // Public caller without auth: return all businesses for browsing/directory or active
   const publicShops = await db.getBusinesses();
-  res.json(publicShops);
+  res.json(publicShops.map(sanitizeBusiness));
 });
 
 // Business: Get by Slug (Public for digital menu/QR)
@@ -253,7 +263,7 @@ app.get('/api/businesses/:slug', async (req, res) => {
   if (!biz) {
     return res.status(404).json({ error: 'Business not found' });
   }
-  res.json(biz);
+  res.json(sanitizeBusiness(biz));
 });
 
 // Business: Create New Shop
@@ -266,7 +276,7 @@ app.post('/api/businesses', requireAdmin as express.RequestHandler, async (req: 
 
   // Generate unique ownerId and pin if not provided
   const ownerId = newBiz.ownerId || `usr_owner_${newBiz.slug}`;
-  const staffPin = newBiz.staffPin || (newBiz.ownerPhone ? newBiz.ownerPhone.replace(/\D/g, '').slice(-4) : '8808');
+  const staffPin = newBiz.staffPin || (newBiz.ownerPhone && newBiz.ownerPhone.replace(/\D/g, '').length >= 4 ? newBiz.ownerPhone.replace(/\D/g, '').slice(-4) : String(Math.floor(1000 + Math.random() * 9000)));
 
   newBiz.ownerId = ownerId;
   newBiz.staffPin = staffPin;
@@ -274,7 +284,7 @@ app.post('/api/businesses', requireAdmin as express.RequestHandler, async (req: 
   const saved = await db.saveBusiness(newBiz, ownerId);
   await db.setActiveSlug(saved.slug);
 
-  res.status(201).json(saved);
+  res.status(201).json(sanitizeBusiness(saved));
 });
 
 // Business: Update Existing Shop
@@ -291,17 +301,19 @@ app.put(
       return res.status(404).json({ error: 'Business not found' });
     }
 
-    // Preserve ownerId unless admin explicitly overrides
+    // Preserve existing staffPin unless explicitly supplied
+    const staffPin = incoming.staffPin && incoming.staffPin.length === 4 ? incoming.staffPin : existing.staffPin;
     const ownerId = req.user?.role === 'admin' && incoming.ownerId ? incoming.ownerId : existing.ownerId;
     const merged: Business = {
       ...existing,
       ...incoming,
       slug: existing.slug, // Prevent changing slug via update to protect URLs
       ownerId,
+      staffPin,
     };
 
     const updated = await db.saveBusiness(merged, ownerId);
-    res.json(updated);
+    res.json(sanitizeBusiness(updated));
   }
 );
 

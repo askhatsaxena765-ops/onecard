@@ -20,7 +20,7 @@ export function getCurrentUser(): User | null {
   }
 }
 
-export function setAuthSession(token: string, user: User, remember = false): void {
+export function setAuthSession(token: string, user: User, remember = true): void {
   try {
     sessionStorage.setItem(AUTH_TOKEN_KEY, token);
     sessionStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));

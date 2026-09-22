@@ -6,6 +6,7 @@ import { DigitalMenuTab } from './DigitalMenuTab';
 import { LoyaltyCardTab } from './LoyaltyCardTab';
 import { ReviewPromptModal } from './ReviewPromptModal';
 import { StaffPinModal } from '../AdminView/StaffPinModal';
+import { getCurrentUser, getAuthToken } from '../../utils/api';
 
 interface CustomerHubProps {
   business: Business;
@@ -25,14 +26,14 @@ export const CustomerHub: React.FC<CustomerHubProps> = ({
   const [isPinModalOpen, setIsPinModalOpen] = useState(false);
 
   const handleAdminClick = () => {
-    try {
-      const isAuth = sessionStorage.getItem(`onecard_staff_auth_${business.slug}`);
-      if (isAuth === 'true') {
-        const isDev = localStorage.getItem('onecard_is_developer') === 'true';
-        onSwitchToAdmin(isDev);
+    const user = getCurrentUser();
+    const token = getAuthToken();
+    if (user && token) {
+      if (user.role === 'admin' || (user.role === 'owner' && user.assignedShopSlug === business.slug)) {
+        onSwitchToAdmin(user.role === 'admin');
         return;
       }
-    } catch (e) {}
+    }
     setIsPinModalOpen(true);
   };
 

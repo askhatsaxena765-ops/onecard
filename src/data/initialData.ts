@@ -56,7 +56,6 @@ export const DEMO_BUSINESS: Business = {
     createdAt: '2026-08-01',
   },
   ownerPhone: '070558 08808',
-  staffPin: '8808',
 };
 
 export const DEMO_MENU_ITEMS: MenuItem[] = [
